@@ -1,3 +1,4 @@
+//menu de navegação do Portal do Professor, com os links Posts, Professores, Alunos e Sair.
 import { Link, usePathname, useRouter } from 'expo-router';
 import { StyleSheet,TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,14 +28,16 @@ export function ProfessorNav() {
         const ativo = pathname === item.href;
         return (
           <Link key={item.href} href={item.href} style={styles.item}>
-            <ThemedText type={ativo ? 'smallBold' : 'small'} style={ativo ? styles.ativo : undefined}>
+            <ThemedText
+              type={ativo ? 'smallBold' : 'small'}
+              style={[styles.itemTexto, ativo ? styles.ativo : undefined]}>
               {item.label}
             </ThemedText>
           </Link>
         );
       })}
-   <TouchableOpacity onPress={sair} style={styles.item}>
-        <ThemedText type="small" style={styles.sair}>
+      <TouchableOpacity onPress={sair} style={styles.item}>
+        <ThemedText type="small" style={[styles.itemTexto, styles.sair]}>
           Sair
         </ThemedText>
       </TouchableOpacity>
@@ -52,6 +55,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   item: { paddingVertical: 2 },
+  itemTexto: { fontSize: 18 },
   ativo: { color: '#E8174B' },
-  sair: { color: '#999' },
+  sair: { color: '#999',  },
 });

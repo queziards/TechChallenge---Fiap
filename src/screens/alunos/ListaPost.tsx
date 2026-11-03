@@ -1,6 +1,7 @@
+//PAGINA DO ALUNO - LISTA DE POST
 import { Link, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TextInput } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PostCard } from '@/components/PostCard';
@@ -72,33 +73,45 @@ export function ListaPost() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.titulo}>
-          Portal do Aluno
-        </ThemedText>
-        <Link href="/professor/login" style={styles.linkProfessor}>
-          <ThemedText style={styles.linkProfessor}>Sou Professor</ThemedText>
-        </Link>
-        <TextInput
-          style={styles.busca}
-          placeholder="Buscar posts"
-          value={busca}
-          onChangeText={setBusca}
-        />
+        <View style={styles.headerBarra}>
+          <View>
+            <ThemedText type="title" style={styles.headerTitulo}>
+              Portal do Aluno
+            </ThemedText>
+            <ThemedText  style={styles.headerSubtitulo}>
+              Blog da turma
+            </ThemedText>
+          </View>
+          <Link href="/professor/login" style={styles.headerBotaoProfessor}>
+            <ThemedText type="smallBold" style={styles.headerBotaoProfessorTexto}>
+              Professor
+            </ThemedText>
+          </Link>
+        </View>
 
-        {carregando ? (
-          <ActivityIndicator style={{ marginTop: 20 }} />
-        ) : erro ? (
-          <ThemedText>{erro}</ThemedText>
-        ) : (
-          <FlatList
-            data={postsFiltrados}
-            keyExtractor={(item) => String(item.id)}
-            renderItem={({ item }) => <PostCard post={item} onPress={() => abrirPost(item)} />}
-            ListEmptyComponent={<ThemedText>Nenhum post encontrado.</ThemedText>}
-            onRefresh={buscarPosts}
-            refreshing={carregando}
+        <View style={styles.conteudo}>
+          <TextInput
+            style={styles.busca}
+            placeholder="Buscar posts..."
+            value={busca}
+            onChangeText={setBusca}
           />
-        )}
+
+          {carregando ? (
+            <ActivityIndicator style={{ marginTop: 20 }} />
+          ) : erro ? (
+            <ThemedText>{erro}</ThemedText>
+          ) : (
+            <FlatList
+              data={postsFiltrados}
+              keyExtractor={(item) => String(item.id)}
+              renderItem={({ item }) => <PostCard post={item} onPress={() => abrirPost(item)} />}
+              ListEmptyComponent={<ThemedText>Nenhum post encontrado.</ThemedText>}
+              onRefresh={buscarPosts}
+              refreshing={carregando}
+            />
+          )}
+        </View>
       </SafeAreaView>
     </ThemedView>
   );
@@ -106,26 +119,43 @@ export function ListaPost() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: { flex: 1, paddingHorizontal: 16 },
-  titulo: {
-    marginBottom: 12,
-    fontSize: 28,
+  safeArea: { flex: 1 },
+  headerBarra: {
+    backgroundColor: '#E8174B',
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
+  headerTitulo: { color: '#fff', fontSize: 26 },
+  
+  headerSubtitulo: { 
+    color: '#fff', 
+    opacity: 0.85, 
+    marginTop: 2, 
+    fontSize: 20,
+  },
+
+  headerBotaoProfessor: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    fontSize:20,
+  },
+
+  headerBotaoProfessorTexto: { 
+    color: '#fff',
+    fontSize:18
+  },
+  conteudo: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
   busca: {
-    height: 55,
+    height: 50,
     borderWidth: 1,
     borderColor: '#e3e3e3',
     borderRadius: 8,
     paddingHorizontal: 12,
     marginBottom: 14,
-  },
-  linkProfessor: {
-    alignSelf: 'flex-start',
-    marginTop: 16,
-    marginBottom: 12,
-    opacity: 0.9,
-    fontSize: 18,
-    //backgroundColor:'#e3e3e3',
- 
   },
 });

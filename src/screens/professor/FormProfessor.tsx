@@ -98,5 +98,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
   },
-  textoBotao: { color: '#fff' },
+  textoBotao: { color: '#fff', },
 });

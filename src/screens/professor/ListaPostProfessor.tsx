@@ -1,6 +1,4 @@
-//LISTA DE POST DA PAGINA DO PROFESSOR
-
-
+//LISTA DE POST DA PAGINA DO PROFESSOR - apos o login
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
@@ -96,7 +94,7 @@ export function ListaPostProfessor() {
         <View style={styles.cabecalho}>
           <ThemedText type="title">Posts</ThemedText>
           <TouchableOpacity style={styles.botaoNovo} onPress={() => router.push('/professor/post-form')}>
-            <ThemedText type="smallBold" style={styles.textoBotaoNovo}>+ Novo</ThemedText>
+            <ThemedText  style={styles.textoBotaoNovo}>+ Novo</ThemedText>
           </TouchableOpacity>
         </View>
 
@@ -122,10 +120,38 @@ export function ListaPostProfessor() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safeArea: { flex: 1, paddingHorizontal: 16 },
-  cabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  botaoNovo: { backgroundColor: '#E8174B', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  textoBotaoNovo: { color: '#fff' },
-  busca: { height: 40, borderWidth: 1, borderColor: '#e3e3e3', borderRadius: 8, paddingHorizontal: 12, marginBottom: 14 },
+  container: { 
+    flex: 1
+   },
+  safeArea: { 
+    flex: 1, 
+    paddingHorizontal: 16 
+  },
+  cabecalho: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    marginBottom: 12 
+  },
+  botaoNovo: { 
+    backgroundColor: '#E8174B', 
+    paddingHorizontal: 14, 
+    paddingVertical: 8, 
+    borderRadius: 8 
+  },
+  textoBotaoNovo: { 
+    color: '#fff', 
+    fontSize: 18,
+    height: 26
+  },
+  busca: { 
+    height: 40, 
+    borderWidth: 1,
+     borderColor: '#e3e3e3', 
+     borderRadius: 8, 
+     paddingHorizontal: 12, 
+     marginBottom: 14,
+     fontSize: 16,
+     height: 55
+     },
 });

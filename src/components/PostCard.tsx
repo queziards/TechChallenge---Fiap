@@ -1,3 +1,4 @@
+//card que exibe um post (título, descrição e autor) na lista que o aluno vê, só para leitura.
 import { ThemedText } from '@/components/themed-text';
 import { Post } from '@/services/api';
 import { StyleSheet, TouchableOpacity } from 'react-native';

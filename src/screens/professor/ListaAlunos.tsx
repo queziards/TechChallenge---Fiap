@@ -95,10 +95,10 @@ export function ListaAlunos() {
                   </View>
                   <View style={styles.acoes}>
                     <TouchableOpacity onPress={() => editar(item)}>
-                      <ThemedText type="small" style={styles.link}>Editar</ThemedText>
+                      <ThemedText  style={styles.link}>Editar</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => excluir(item)}>
-                      <ThemedText type="small" style={styles.linkExcluir}>Excluir</ThemedText>
+                      <ThemedText  style={styles.linkExcluir}>Excluir</ThemedText>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, paddingHorizontal: 16 },
   cabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   botaoNovo: { backgroundColor: '#E8174B', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  textoBotaoNovo: { color: '#fff' },
+  textoBotaoNovo: { color: '#fff',  fontSize: 18 },
   card: {
     borderWidth: 1,
     borderColor: '#e3e3e3',
@@ -141,8 +141,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   acoes: { flexDirection: 'row', gap: 16 },
-  link: { color: '#E8174B', fontWeight: '600' },
-  linkExcluir: { color: '#999' },
+  link: { color: '#E8174B', fontWeight: '600', fontSize: 15 },
+  linkExcluir: { color: '#999',  fontSize: 15 },
   paginacao: {
     flexDirection: 'row',
     justifyContent: 'space-between',

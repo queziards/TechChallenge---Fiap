@@ -1,3 +1,4 @@
+//DETALHE DO POST PAGINA DO ALUNO
 import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet } from 'react-native';
 
