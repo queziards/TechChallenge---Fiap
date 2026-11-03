@@ -20,4 +20,4 @@ e excluem posts e podem cadastrar um professor ou usuário no aplicativo, e alun
 - `components/ProfessorNav.tsx`: menu do portal do professor
 
 ## Acesso de teste
-- Professor: email@teste.com / senha123
+- Professor: email@teste.com / senha: 123456
