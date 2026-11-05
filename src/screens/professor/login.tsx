@@ -1,3 +1,5 @@
+//Tela de Login professor e aluno s
+
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
@@ -35,6 +37,11 @@ export function Login() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
+        
+        <TouchableOpacity onPress={() => router.push('/alunos/login-aluno')}>
+          <ThemedText style={styles.linkAlunoTexto}>Sou aluno</ThemedText>
+        </TouchableOpacity>
+
         <ThemedText type="title" style={styles.titulo}>
           Portal do Professor
         </ThemedText>
@@ -51,7 +58,7 @@ export function Login() {
           autoCapitalize="none"
         />
 
-        <ThemedText  style={styles.intro}>Senha</ThemedText>
+        <ThemedText style={styles.intro}>Senha</ThemedText>
         <TextInput
           style={styles.input}
           placeholder="Sua senha"
@@ -61,10 +68,13 @@ export function Login() {
         />
 
         <TouchableOpacity style={styles.botao} onPress={entrar} disabled={carregando}>
-          <ThemedText  style={styles.textoBotao}>
+          <ThemedText style={styles.textoBotao}>
             {carregando ? 'Entrando...' : 'Entrar'}
           </ThemedText>
         </TouchableOpacity>
+
+     
+
       </SafeAreaView>
     </ThemedView>
   );
@@ -73,29 +83,29 @@ export function Login() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
- //portal do professor e bloco todo
-  safeArea: { 
+  //portal do professor e bloco todo
+  safeArea: {
     flex: 1,
     paddingHorizontal: 16,
     paddingTop: 20,
     justifyContent: 'flex-start',
   },
-  
-  titulo: { 
-    textAlign: 'center', 
+
+  titulo: {
+    textAlign: 'center',
     marginBottom: 4,
-    
+
   },
-  
-   //faca seu login
-  subtitulo: { 
-    textAlign: 'center', 
-    marginBottom: 24, 
+
+  //faca seu login
+  subtitulo: {
+    textAlign: 'center',
+    marginBottom: 24,
     opacity: 0.6,
     fontSize: 18
   },
-    
-    
+
+
   input: {
     height: 60,
     borderWidth: 1,
@@ -106,10 +116,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
   },
-  
+
   //login e senha - titulo
-  intro:{
-    fontSize:19
+  intro: {
+    fontSize: 19
   },
 
 
@@ -122,10 +132,17 @@ const styles = StyleSheet.create({
     marginTop: 8,
 
   },
-  
-  textoBotao: { 
-    color: '#fff', 
+
+  textoBotao: {
+    color: '#fff',
     fontSize: 20,
-   
+  },
+  texto: { color: '#fff', fontSize: 18 },
+
+  linkAlunoTexto: {
+    color: '#E8174B',          
+    fontSize: 20,              
+    fontWeight: '600',
+    textDecorationLine: 'underline',  // sublinhado
   },
 });

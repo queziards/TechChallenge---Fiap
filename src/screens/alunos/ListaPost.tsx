@@ -1,14 +1,14 @@
 //PAGINA DO ALUNO - LISTA DE POST
-import { Link, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PostCard } from '@/components/PostCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import api, { Post } from '@/services/api';
-
 
 type PostApi = {
   id: number;
@@ -35,6 +35,8 @@ export function ListaPost() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
+  const [logado, setLogado] = useState(false);
+  const [nomeUsuario, setNomeUsuario] = useState<string | null>(null);
 
   const buscarPosts = useCallback(async () => {
     setCarregando(true);
@@ -52,6 +54,23 @@ export function ListaPost() {
   useEffect(() => {
     buscarPosts();
   }, [buscarPosts]);
+
+  // Relê o login toda vez que a tela aparece (ex.: ao voltar do login do aluno)
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.multiGet(['@token', '@nome']).then(([[, token], [, nome]]) => {
+        setLogado(!!token);
+        setNomeUsuario(nome);
+      });
+    }, [])
+  );
+
+  // Apaga o login guardado no aparelho e volta o botão para "Login"
+  async function sair() {
+    await AsyncStorage.multiRemove(['@token', '@nome']);
+    setLogado(false);
+    setNomeUsuario(null);
+  }
 
   const postsFiltrados = posts.filter((post) =>
     (post.titulo + post.descricao).toLowerCase().includes(busca.toLowerCase())
@@ -78,15 +97,24 @@ export function ListaPost() {
             <ThemedText type="title" style={styles.headerTitulo}>
               Portal do Aluno
             </ThemedText>
-            <ThemedText  style={styles.headerSubtitulo}>
-              Blog da turma
+            <ThemedText style={styles.headerSubtitulo}>
+              {logado && nomeUsuario ? `Olá, ${nomeUsuario}` : 'Blog da turma'}
             </ThemedText>
           </View>
-          <Link href="/professor/login" style={styles.headerBotaoProfessor}>
-            <ThemedText type="smallBold" style={styles.headerBotaoProfessorTexto}>
-              Professor
-            </ThemedText>
-          </Link>
+
+          {logado ? (
+            <TouchableOpacity style={styles.headerBotaoProfessor} onPress={sair}>
+              <ThemedText type="smallBold" style={styles.headerBotaoProfessorTexto}>
+                Sair
+              </ThemedText>
+            </TouchableOpacity>
+          ) : (
+            <Link href="/professor/login" style={styles.headerBotaoProfessor}>
+              <ThemedText type="smallBold" style={styles.headerBotaoProfessorTexto}>
+                Login
+              </ThemedText>
+            </Link>
+          )}
         </View>
 
         <View style={styles.conteudo}>
@@ -129,11 +157,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitulo: { color: '#fff', fontSize: 26 },
-  
-  headerSubtitulo: { 
-    color: '#fff', 
-    opacity: 0.85, 
-    marginTop: 2, 
+
+  headerSubtitulo: {
+    color: '#fff',
+    opacity: 0.85,
+    marginTop: 2,
     fontSize: 20,
   },
 
@@ -142,12 +170,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    fontSize:20,
+    fontSize: 20,
   },
 
-  headerBotaoProfessorTexto: { 
+  headerBotaoProfessorTexto: {
     color: '#fff',
-    fontSize:18
+    fontSize: 18,
   },
   conteudo: { flex: 1, paddingHorizontal: 16, paddingTop: 14 },
   busca: {

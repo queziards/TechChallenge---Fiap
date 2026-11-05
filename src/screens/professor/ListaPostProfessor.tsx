@@ -35,21 +35,25 @@ export function ListaPostProfessor() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [carregando, setCarregando] = useState(true);
 
-  const buscarPosts = useCallback(async () => {
+  const buscarPosts = useCallback(async (termo: string) => {
     setCarregando(true);
     try {
-      const resposta = await api.get<PostApi[]>('/posts/me');
+      const resposta = termo.trim()
+        ? await api.get<PostApi[]>('/posts/search', { params: { q: termo.trim() } })
+        : await api.get<PostApi[]>('/posts/me');
       setPosts(resposta.data.map(mapPost));
     } catch (e) {
-      Alert.alert('Erro', 'Não foi possível carregar seus posts.');
+      Alert.alert('Erro', 'Não foi possível carregar os posts.');
     } finally {
       setCarregando(false);
     }
   }, []);
 
+  // Busca de posts consumindo a rota GET /api/v1/posts/search?q= 
   useEffect(() => {
-    buscarPosts();
-  }, [buscarPosts]);
+    const t = setTimeout(() => buscarPosts(busca), 400);
+    return () => clearTimeout(t);
+  }, [busca, buscarPosts]);
 
   const postsFiltrados = posts.filter((post) =>
     (post.titulo + post.descricao).toLowerCase().includes(busca.toLowerCase())
@@ -110,7 +114,7 @@ export function ListaPostProfessor() {
               <PostCardAdmin post={item} onPress={() => abrirPost(item)} onEdit={() => editarPost(item)} onDelete={() => excluirPost(item)} />
             )}
             ListEmptyComponent={<ThemedText>Nenhum post encontrado.</ThemedText>}
-            onRefresh={buscarPosts}
+            onRefresh={() => buscarPosts(busca)}
             refreshing={carregando}
           />
         )}
