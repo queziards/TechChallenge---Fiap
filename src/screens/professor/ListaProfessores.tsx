@@ -1,15 +1,19 @@
 //LISTA DE PROFESSORES CADASTRADOS
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProfessorNav } from '@/components/ProfessorNav';
+import { useToast } from '@/components/ToastProvider';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import api, { Professor } from '@/services/api';
+import { useRequireTeacher } from '@/hooks/use-require-teacher';
+import api, { PaginatedResponse, PaginationMeta, Professor } from '@/services/api';
+import { apiErrorMessage } from '@/services/api-error';
 
-const POR_PAGINA = 3;
+const POR_PAGINA = 20;
+const META_INICIAL: PaginationMeta = { currentPage: 1, lastPage: 1, total: 0, perPage: POR_PAGINA };
 
 type UserApi = { id: number; name: string; email: string };
 
@@ -19,29 +23,33 @@ function mapProfessor(u: UserApi): Professor {
 
 export function ListaProfessores() {
   const router = useRouter();
+  const { showToast } = useToast();
+  const { checking, authorized, role } = useRequireTeacher();
   const [professores, setProfessores] = useState<Professor[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [pagina, setPagina] = useState(1);
+  const [meta, setMeta] = useState(META_INICIAL);
 
-  const buscarProfessores = useCallback(async () => {
+  const buscarProfessores = useCallback(async (page = meta.currentPage) => {
+    if (!authorized) return;
     setCarregando(true);
     try {
-      const resposta = await api.get<UserApi[]>('/teachers');
-      setProfessores(resposta.data.map(mapProfessor));
-    } catch (e) {
-      Alert.alert('Erro', 'Não foi possível carregar os professores.');
+      const resposta = await api.get<PaginatedResponse<UserApi>>('/teachers', {
+        params: { page, perPage: POR_PAGINA },
+      });
+      setProfessores(resposta.data.data.map(mapProfessor));
+      setMeta(resposta.data.meta);
+    } catch (e: unknown) {
+      Alert.alert('Erro', apiErrorMessage(e, 'Não foi possível carregar os professores.'));
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [authorized, meta.currentPage]);
 
-  useEffect(() => {
-    buscarProfessores();
-  }, [buscarProfessores]);
-
-  const totalPaginas = Math.max(1, Math.ceil(professores.length / POR_PAGINA));
-  const inicio = (pagina - 1) * POR_PAGINA;
-  const itensDaPagina = professores.slice(inicio, inicio + POR_PAGINA);
+  useFocusEffect(
+    useCallback(() => {
+      buscarProfessores(meta.currentPage);
+    }, [buscarProfessores, meta.currentPage])
+  );
 
   function editar(professor: Professor) {
     router.push({
@@ -51,6 +59,11 @@ export function ListaProfessores() {
   }
 
   function excluir(professor: Professor) {
+    if (role !== 'admin') {
+      Alert.alert('Acesso negado', 'Somente administradores podem excluir professores.');
+      return;
+    }
+
     Alert.alert('Excluir professor', `Tem certeza que deseja excluir "${professor.nome}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
@@ -59,14 +72,18 @@ export function ListaProfessores() {
         onPress: async () => {
           try {
             await api.delete(`/teachers/${professor.id}`);
-            setProfessores((atual) => atual.filter((p) => p.id !== professor.id));
-          } catch (e) {
-            Alert.alert('Erro', 'Não foi possível excluir o professor.');
+            showToast('Professor excluído com sucesso.', 'success');
+            const page = professores.length === 1 ? Math.max(1, meta.currentPage - 1) : meta.currentPage;
+            await buscarProfessores(page);
+          } catch (e: unknown) {
+            showToast(apiErrorMessage(e, 'Não foi possível excluir o professor.'), 'error');
           }
         },
       },
     ]);
   }
+
+  if (checking || !authorized) return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
     <ThemedView style={styles.container}>
@@ -75,9 +92,11 @@ export function ListaProfessores() {
 
         <View style={styles.cabecalho}>
           <ThemedText type="title">Professores</ThemedText>
-          <TouchableOpacity style={styles.botaoNovo} onPress={() => router.push('/professor/professor-form')}>
-            <ThemedText  style={styles.textoBotaoNovo}>+ Novo</ThemedText>
-          </TouchableOpacity>
+          {role === 'admin' ? (
+            <TouchableOpacity style={styles.botaoNovo} onPress={() => router.push('/professor/professor-form')}>
+              <ThemedText style={styles.textoBotaoNovo}>+ Novo</ThemedText>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {carregando ? (
@@ -85,7 +104,7 @@ export function ListaProfessores() {
         ) : (
           <>
             <FlatList
-              data={itensDaPagina}
+              data={professores}
               keyExtractor={(item) => String(item.id)}
               renderItem={({ item }) => (
                 <View style={styles.card}>
@@ -94,27 +113,34 @@ export function ListaProfessores() {
                     <ThemedText type="small">{item.email}</ThemedText>
                   </View>
                   <View style={styles.acoes}>
-                    <TouchableOpacity onPress={() => editar(item)}>
-                      <ThemedText  style={styles.link}>Editar</ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => excluir(item)}>
-                      <ThemedText  style={styles.linkExcluir}>Excluir</ThemedText>
-                    </TouchableOpacity>
+                    {role === 'admin' ? (
+                      <>
+                        <TouchableOpacity onPress={() => editar(item)}>
+                          <ThemedText style={styles.link}>Editar</ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => excluir(item)}>
+                          <ThemedText style={styles.linkExcluir}>Excluir</ThemedText>
+                        </TouchableOpacity>
+                      </>
+                    ) : null}
                   </View>
                 </View>
               )}
               ListEmptyComponent={<ThemedText>Nenhum professor cadastrado.</ThemedText>}
-              onRefresh={buscarProfessores}
+              onRefresh={() => buscarProfessores(meta.currentPage)}
               refreshing={carregando}
             />
 
             <View style={styles.paginacao}>
-              <TouchableOpacity disabled={pagina === 1} onPress={() => setPagina((p) => p - 1)}>
-                <ThemedText type="small" style={pagina === 1 ? styles.paginaDesabilitada : styles.link}>Anterior</ThemedText>
+              <TouchableOpacity disabled={carregando || meta.currentPage <= 1} onPress={() => buscarProfessores(meta.currentPage - 1)}>
+                <ThemedText type="small" style={meta.currentPage <= 1 ? styles.paginaDesabilitada : styles.link}>Anterior</ThemedText>
               </TouchableOpacity>
-              <ThemedText type="small">Página {pagina} de {totalPaginas}</ThemedText>
-              <TouchableOpacity disabled={pagina === totalPaginas} onPress={() => setPagina((p) => p + 1)}>
-                <ThemedText type="small" style={pagina === totalPaginas ? styles.paginaDesabilitada : styles.link}>Próxima</ThemedText>
+              <ThemedText type="small">
+                Página {meta.currentPage} de {meta.lastPage} · {meta.total === 0 ? 0 : (meta.currentPage - 1) * meta.perPage + 1}
+                {'–'}{Math.min(meta.currentPage * meta.perPage, meta.total)} de {meta.total}
+              </ThemedText>
+              <TouchableOpacity disabled={carregando || meta.currentPage >= meta.lastPage} onPress={() => buscarProfessores(meta.currentPage + 1)}>
+                <ThemedText type="small" style={meta.currentPage >= meta.lastPage ? styles.paginaDesabilitada : styles.link}>Próxima</ThemedText>
               </TouchableOpacity>
             </View>
           </>

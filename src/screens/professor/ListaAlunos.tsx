@@ -1,15 +1,19 @@
 //LISTA DE ALUNOS CADASTRADOS
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ProfessorNav } from '@/components/ProfessorNav';
+import { useToast } from '@/components/ToastProvider';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import api, { Aluno } from '@/services/api';
+import { useRequireTeacher } from '@/hooks/use-require-teacher';
+import api, { Aluno, PaginatedResponse, PaginationMeta } from '@/services/api';
+import { apiErrorMessage } from '@/services/api-error';
 
-const POR_PAGINA = 3;
+const POR_PAGINA = 20;
+const META_INICIAL: PaginationMeta = { currentPage: 1, lastPage: 1, total: 0, perPage: POR_PAGINA };
 
 type UserApi = { id: number; name: string; email: string };
 
@@ -19,29 +23,33 @@ function mapAluno(u: UserApi): Aluno {
 
 export function ListaAlunos() {
   const router = useRouter();
+  const { showToast } = useToast();
+  const { checking, authorized } = useRequireTeacher();
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [pagina, setPagina] = useState(1);
+  const [meta, setMeta] = useState(META_INICIAL);
 
-  const buscarAlunos = useCallback(async () => {
+  const buscarAlunos = useCallback(async (page = meta.currentPage) => {
+    if (!authorized) return;
     setCarregando(true);
     try {
-      const resposta = await api.get<UserApi[]>('/students');
-      setAlunos(resposta.data.map(mapAluno));
-    } catch (e) {
-      Alert.alert('Erro', 'Não foi possível carregar os alunos.');
+      const resposta = await api.get<PaginatedResponse<UserApi>>('/students', {
+        params: { page, perPage: POR_PAGINA },
+      });
+      setAlunos(resposta.data.data.map(mapAluno));
+      setMeta(resposta.data.meta);
+    } catch (e: unknown) {
+      Alert.alert('Erro', apiErrorMessage(e, 'Não foi possível carregar os alunos.'));
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [authorized, meta.currentPage]);
 
-  useEffect(() => {
-    buscarAlunos();
-  }, [buscarAlunos]);
-
-  const totalPaginas = Math.max(1, Math.ceil(alunos.length / POR_PAGINA));
-  const inicio = (pagina - 1) * POR_PAGINA;
-  const itensDaPagina = alunos.slice(inicio, inicio + POR_PAGINA);
+  useFocusEffect(
+    useCallback(() => {
+      buscarAlunos(meta.currentPage);
+    }, [buscarAlunos, meta.currentPage])
+  );
 
   function editar(aluno: Aluno) {
     router.push({
@@ -59,14 +67,18 @@ export function ListaAlunos() {
         onPress: async () => {
           try {
             await api.delete(`/students/${aluno.id}`);
-            setAlunos((atual) => atual.filter((a) => a.id !== aluno.id));
-          } catch (e) {
-            Alert.alert('Erro', 'Não foi possível excluir o aluno.');
+            showToast('Aluno excluído com sucesso.', 'success');
+            const page = alunos.length === 1 ? Math.max(1, meta.currentPage - 1) : meta.currentPage;
+            await buscarAlunos(page);
+          } catch (e: unknown) {
+            showToast(apiErrorMessage(e, 'Não foi possível excluir o aluno.'), 'error');
           }
         },
       },
     ]);
   }
+
+  if (checking || !authorized) return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
     <ThemedView style={styles.container}>
@@ -85,7 +97,7 @@ export function ListaAlunos() {
         ) : (
           <>
             <FlatList
-              data={itensDaPagina}
+              data={alunos}
               keyExtractor={(item) => String(item.id)}
               renderItem={({ item }) => (
                 <View style={styles.card}>
@@ -104,17 +116,20 @@ export function ListaAlunos() {
                 </View>
               )}
               ListEmptyComponent={<ThemedText>Nenhum aluno cadastrado.</ThemedText>}
-              onRefresh={buscarAlunos}
+              onRefresh={() => buscarAlunos(meta.currentPage)}
               refreshing={carregando}
             />
 
             <View style={styles.paginacao}>
-              <TouchableOpacity disabled={pagina === 1} onPress={() => setPagina((p) => p - 1)}>
-                <ThemedText type="small" style={pagina === 1 ? styles.paginaDesabilitada : styles.link}>Anterior</ThemedText>
+              <TouchableOpacity disabled={carregando || meta.currentPage <= 1} onPress={() => buscarAlunos(meta.currentPage - 1)}>
+                <ThemedText type="small" style={meta.currentPage <= 1 ? styles.paginaDesabilitada : styles.link}>Anterior</ThemedText>
               </TouchableOpacity>
-              <ThemedText type="small">Página {pagina} de {totalPaginas}</ThemedText>
-              <TouchableOpacity disabled={pagina === totalPaginas} onPress={() => setPagina((p) => p + 1)}>
-                <ThemedText type="small" style={pagina === totalPaginas ? styles.paginaDesabilitada : styles.link}>Próxima</ThemedText>
+              <ThemedText type="small">
+                Página {meta.currentPage} de {meta.lastPage} · {meta.total === 0 ? 0 : (meta.currentPage - 1) * meta.perPage + 1}
+                {'–'}{Math.min(meta.currentPage * meta.perPage, meta.total)} de {meta.total}
+              </ThemedText>
+              <TouchableOpacity disabled={carregando || meta.currentPage >= meta.lastPage} onPress={() => buscarAlunos(meta.currentPage + 1)}>
+                <ThemedText type="small" style={meta.currentPage >= meta.lastPage ? styles.paginaDesabilitada : styles.link}>Próxima</ThemedText>
               </TouchableOpacity>
             </View>
           </>
