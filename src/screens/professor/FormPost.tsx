@@ -2,24 +2,31 @@
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { useToast } from '@/components/ToastProvider';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useTheme } from '@/hooks/use-theme';
+import { useRequireTeacher } from '@/hooks/use-require-teacher';
 import api from '@/services/api';
+import { apiErrorMessage } from '@/services/api-error';
 
 export function FormPost() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string; titulo?: string; conteudo?: string; autor?: string }>();
+  const { showToast } = useToast();
+  const theme = useTheme();
+  const { checking, authorized } = useRequireTeacher();
+  const params = useLocalSearchParams<{ id?: string; titulo?: string; conteudo?: string }>();
   const editando = !!params.id;
 
   const [titulo, setTitulo] = useState(params.titulo ?? '');
-  const [autor, setAutor] = useState(params.autor ?? '');
   const [conteudo, setConteudo] = useState(params.conteudo ?? '');
   const [salvando, setSalvando] = useState(false);
 
   async function salvar() {
+    if (!authorized) return;
     if (!titulo.trim() || !conteudo.trim()) {
       Alert.alert('Atenção', 'Preenche o título e o conteúdo.');
       return;
@@ -28,18 +35,24 @@ export function FormPost() {
     setSalvando(true);
     try {
       if (editando) {
-        await api.put(`/posts/${params.id}`, { title: titulo, content: conteudo });
+        await api.put(`/posts/${params.id}`, { title: titulo.trim(), content: conteudo.trim() });
       } else {
-        await api.post('/posts', { title: titulo, content: conteudo });
+        await api.post('/posts', { title: titulo.trim(), content: conteudo.trim() });
       }
+      if (editando) showToast('Post atualizado com sucesso.', 'success');
       router.back();
-    } catch (e: any) {
-      console.log('ERRO AO SALVAR:', JSON.stringify(e?.toJSON?.() ?? e, null, 2));
-      Alert.alert('Erro ao salvar', e?.response?.data?.message ?? 'Não foi possível salvar o post.');
+    } catch (e: unknown) {
+      if (editando) {
+        showToast(apiErrorMessage(e, 'Não foi possível atualizar o post.'), 'error');
+      } else {
+        Alert.alert('Erro ao salvar', apiErrorMessage(e, 'Não foi possível salvar o post.'));
+      }
     } finally {
       setSalvando(false);
     }
   }
+
+  if (checking || !authorized) return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
     <ThemedView style={styles.container}>
@@ -49,14 +62,17 @@ export function FormPost() {
         </ThemedText>
 
         <ThemedText type="small">Título</ThemedText>
-        <TextInput style={styles.input} value={titulo} onChangeText={setTitulo} />
-
-        <ThemedText type="small">Autor</ThemedText>
-        <TextInput style={styles.input} value={autor} onChangeText={setAutor} editable={false} />
+        <TextInput
+          style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected }]}
+          placeholderTextColor={theme.textSecondary}
+          value={titulo}
+          onChangeText={setTitulo}
+        />
 
         <ThemedText type="small">Conteúdo</ThemedText>
         <TextInput
-          style={[styles.input, styles.conteudo]}
+          style={[styles.input, styles.conteudo, { color: theme.text, backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected }]}
+          placeholderTextColor={theme.textSecondary}
           value={conteudo}
           onChangeText={setConteudo}
           multiline

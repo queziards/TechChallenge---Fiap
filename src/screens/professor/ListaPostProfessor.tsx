@@ -1,22 +1,31 @@
 //LISTA DE POST DA PAGINA DO PROFESSOR - apos o login
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PostCardAdmin } from '@/components/PostCardAdmin';
 import { ProfessorNav } from '@/components/ProfessorNav';
+import { useToast } from '@/components/ToastProvider';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import api, { Post } from '@/services/api';
+import { useTheme } from '@/hooks/use-theme';
+import { useRequireTeacher } from '@/hooks/use-require-teacher';
+import api, { PaginatedResponse, PaginationMeta, Post } from '@/services/api';
+import { apiErrorMessage } from '@/services/api-error';
+
+const POR_PAGINA = 8;
+const META_INICIAL: PaginationMeta = { currentPage: 1, lastPage: 1, total: 0, perPage: POR_PAGINA };
 
 type PostApi = {
   id: number;
   title: string;
   content: string;
-  userId: number;
+  userId?: number;
   user?: { id: number; name: string };
 };
+
+type PostsApiResponse = PostApi[] | PaginatedResponse<PostApi>;
 
 function mapPost(p: PostApi): Post {
   const resumo = p.content.length > 100 ? `${p.content.slice(0, 100)}...` : p.content;
@@ -26,50 +35,97 @@ function mapPost(p: PostApi): Post {
     descricao: resumo,
     conteudo: p.content,
     autor: p.user?.name ?? 'Professor',
+    autorId: p.userId ?? p.user?.id,
+  };
+}
+
+function getPostsPage(response: PostsApiResponse, page: number) {
+  if (!Array.isArray(response)) {
+    return {
+      posts: response.data.map(mapPost),
+      meta: response.meta,
+    };
+  }
+
+  const lastPage = Math.max(1, Math.ceil(response.length / POR_PAGINA));
+  const currentPage = Math.min(page, lastPage);
+  const start = (currentPage - 1) * POR_PAGINA;
+
+  return {
+    posts: response.slice(start, start + POR_PAGINA).map(mapPost),
+    meta: {
+      currentPage,
+      lastPage,
+      total: response.length,
+      perPage: POR_PAGINA,
+    },
   };
 }
 
 export function ListaPostProfessor() {
   const router = useRouter();
+  const { showToast } = useToast();
+  const theme = useTheme();
+  const { checking, authorized, userId, role } = useRequireTeacher();
   const [busca, setBusca] = useState('');
   const [posts, setPosts] = useState<Post[]>([]);
+  const [meta, setMeta] = useState(META_INICIAL);
+  const [pagina, setPagina] = useState(1);
   const [carregando, setCarregando] = useState(true);
 
-  const buscarPosts = useCallback(async (termo: string) => {
+  const buscarPosts = useCallback(async (termo: string, page: number) => {
+    if (!authorized) return;
     setCarregando(true);
     try {
       const resposta = termo.trim()
-        ? await api.get<PostApi[]>('/posts/search', { params: { q: termo.trim() } })
-        : await api.get<PostApi[]>('/posts/me');
-      setPosts(resposta.data.map(mapPost));
-    } catch (e) {
-      Alert.alert('Erro', 'Não foi possível carregar os posts.');
+        ? await api.get<PostsApiResponse>('/posts/search', {
+          params: { q: termo.trim(), page, perPage: POR_PAGINA },
+        })
+        : await api.get<PostsApiResponse>('/posts', {
+          params: { page, perPage: POR_PAGINA },
+        });
+      const resultado = getPostsPage(resposta.data, page);
+      setPosts(resultado.posts);
+      setMeta(resultado.meta);
+    } catch (e: unknown) {
+      Alert.alert('Erro', apiErrorMessage(e, 'Não foi possível carregar os posts.'));
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [authorized]);
 
-  // Busca de posts consumindo a rota GET /api/v1/posts/search?q= 
-  useEffect(() => {
-    const t = setTimeout(() => buscarPosts(busca), 400);
-    return () => clearTimeout(t);
-  }, [busca, buscarPosts]);
-
-  const postsFiltrados = posts.filter((post) =>
-    (post.titulo + post.descricao).toLowerCase().includes(busca.toLowerCase())
+  useFocusEffect(
+    useCallback(() => {
+      const timer = setTimeout(() => buscarPosts(busca, pagina), busca.trim() ? 400 : 0);
+      return () => clearTimeout(timer);
+    }, [busca, pagina, buscarPosts])
   );
+
+  function alterarBusca(termo: string) {
+    setBusca(termo);
+    setPagina(1);
+  }
+
+  if (checking || !authorized) return <ActivityIndicator style={{ flex: 1 }} />;
 
   function abrirPost(post: Post) {
     router.push({
       pathname: '/post/[id]',
-      params: { id: String(post.id), titulo: post.titulo, descricao: post.descricao, conteudo: post.conteudo, autor: post.autor },
+      params: {
+        id: String(post.id),
+        titulo: post.titulo,
+        descricao: post.descricao,
+        conteudo: post.conteudo,
+        autor: post.autor,
+        autorId: post.autorId === undefined ? undefined : String(post.autorId),
+      },
     });
   }
 
   function editarPost(post: Post) {
     router.push({
       pathname: '/professor/post-form',
-      params: { id: String(post.id), titulo: post.titulo, conteudo: post.conteudo, autor: post.autor },
+      params: { id: String(post.id), titulo: post.titulo, conteudo: post.conteudo },
     });
   }
 
@@ -82,9 +138,14 @@ export function ListaPostProfessor() {
         onPress: async () => {
           try {
             await api.delete(`/posts/${post.id}`);
-            setPosts((atual) => atual.filter((p) => p.id !== post.id));
-          } catch (e) {
-            Alert.alert('Erro', 'Não foi possível excluir o post.');
+            showToast('Post excluído com sucesso.', 'success');
+            if (posts.length === 1 && meta.currentPage > 1) {
+              setPagina(meta.currentPage - 1);
+            } else {
+              await buscarPosts(busca, meta.currentPage);
+            }
+          } catch (e: unknown) {
+            showToast(apiErrorMessage(e, 'Não foi possível excluir o post.'), 'error');
           }
         },
       },
@@ -102,22 +163,58 @@ export function ListaPostProfessor() {
           </TouchableOpacity>
         </View>
 
-        <TextInput style={styles.busca} placeholder="Buscar posts" value={busca} onChangeText={setBusca} />
+        <TextInput
+          style={[styles.busca, { color: theme.text, backgroundColor: theme.backgroundElement, borderColor: theme.backgroundSelected }]}
+          placeholderTextColor={theme.textSecondary}
+          placeholder="Buscar posts"
+          value={busca}
+          onChangeText={alterarBusca}
+        />
 
         {carregando ? (
           <ActivityIndicator style={{ marginTop: 20 }} />
         ) : (
           <FlatList
-            data={postsFiltrados}
+            data={posts}
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => (
-              <PostCardAdmin post={item} onPress={() => abrirPost(item)} onEdit={() => editarPost(item)} onDelete={() => excluirPost(item)} />
+              <PostCardAdmin
+                post={item}
+                canManage={role === 'admin' || (role === 'teacher' && item.autorId === userId)}
+                onPress={() => abrirPost(item)}
+                onEdit={() => editarPost(item)}
+                onDelete={() => excluirPost(item)}
+              />
             )}
             ListEmptyComponent={<ThemedText>Nenhum post encontrado.</ThemedText>}
-            onRefresh={() => buscarPosts(busca)}
+            onRefresh={() => buscarPosts(busca, pagina)}
             refreshing={carregando}
           />
         )}
+        {!carregando ? (
+          <View style={styles.paginacao}>
+            <TouchableOpacity
+              disabled={carregando || meta.currentPage <= 1}
+              onPress={() => setPagina(meta.currentPage - 1)}
+            >
+              <ThemedText style={meta.currentPage <= 1 ? styles.paginaDesabilitada : styles.link}>
+                Anterior
+              </ThemedText>
+            </TouchableOpacity>
+            <ThemedText style={styles.textoPaginacao}>
+              Página {meta.currentPage} de {meta.lastPage} · {meta.total === 0 ? 0 : (meta.currentPage - 1) * meta.perPage + 1}
+              {'–'}{Math.min(meta.currentPage * meta.perPage, meta.total)} de {meta.total}
+            </ThemedText>
+            <TouchableOpacity
+              disabled={carregando || meta.currentPage >= meta.lastPage}
+              onPress={() => setPagina(meta.currentPage + 1)}
+            >
+              <ThemedText style={meta.currentPage >= meta.lastPage ? styles.paginaDesabilitada : styles.link}>
+                Próxima
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </SafeAreaView>
     </ThemedView>
   );
@@ -149,7 +246,6 @@ const styles = StyleSheet.create({
     height: 26
   },
   busca: { 
-    height: 40, 
     borderWidth: 1,
      borderColor: '#e3e3e3', 
      borderRadius: 8, 
@@ -158,4 +254,14 @@ const styles = StyleSheet.create({
      fontSize: 16,
      height: 55
      },
+  paginacao: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  textoPaginacao: { fontSize: 13, textAlign: 'center' },
+  link: { color: '#E8174B', fontWeight: '600' },
+  paginaDesabilitada: { color: '#999' },
 });

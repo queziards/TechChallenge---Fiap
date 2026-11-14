@@ -1,5 +1,4 @@
 //card de post usado na área do professor, que além das informações do post traz os botões Editar e Excluir.
-import { Feather } from '@expo/vector-icons';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -10,9 +9,10 @@ type Props = {
   onPress: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  canManage?: boolean;
 };
 
-export function PostCardAdmin({ post, onPress, onEdit, onDelete }: Props) {
+export function PostCardAdmin({ post, onPress, onEdit, onDelete, canManage = true }: Props) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <ThemedText style={styles.titulo}>{post.titulo}</ThemedText>
@@ -23,18 +23,16 @@ export function PostCardAdmin({ post, onPress, onEdit, onDelete }: Props) {
         <ThemedText type="small" style={styles.autor}>
           {post.autor}
         </ThemedText>
-        <View style={styles.acoes}>
-          <TouchableOpacity onPress={onEdit} hitSlop={8}>
-          <ThemedText type="small" style={styles.acaoTexto}>
-              Editar
-            </ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} hitSlop={8}>
-          <ThemedText type="small" style={[styles.acaoTexto, styles.excluirTexto]}>
-              Excluir
-            </ThemedText>
-          </TouchableOpacity>
-        </View>
+        {canManage ? (
+          <View style={styles.acoes}>
+            <TouchableOpacity onPress={onEdit} hitSlop={8}>
+              <ThemedText type="small" style={styles.acaoTexto}>Editar</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onDelete} hitSlop={8}>
+              <ThemedText type="small" style={[styles.acaoTexto, styles.excluirTexto]}>Excluir</ThemedText>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
