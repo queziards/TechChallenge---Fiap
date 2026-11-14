@@ -3,14 +3,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { logoutSession } from '@/services/auth';
 
 export function UsuarioLogs() {
   const router = useRouter();
   const [logado, setLogado] = useState(false);
   const [nome, setNome] = useState<string | null>(null);
+  const [saindo, setSaindo] = useState(false);
 
   // Relê o login toda vez que a tela volta a aparecer (ex.: depois de entrar)
   useFocusEffect(
@@ -23,9 +25,18 @@ export function UsuarioLogs() {
   );
 
   async function sair() {
-    await AsyncStorage.multiRemove(['@token', '@nome']);
-    setLogado(false);
-    setNome(null);
+    if (saindo) return;
+    setSaindo(true);
+    try {
+      await logoutSession();
+      setLogado(false);
+      setNome(null);
+      router.replace('/professor/login');
+    } catch (error: unknown) {
+      Alert.alert('Erro ao sair', error instanceof Error ? error.message : 'Não foi possível encerrar a sessão.');
+    } finally {
+      setSaindo(false);
+    }
   }
 
   return (
@@ -33,8 +44,8 @@ export function UsuarioLogs() {
       {logado ? (
         <>
           <ThemedText type="small">Olá, {nome ?? 'aluno'}</ThemedText>
-          <TouchableOpacity onPress={sair}>
-            <ThemedText type="small" style={styles.link}>Sair</ThemedText>
+          <TouchableOpacity onPress={sair} disabled={saindo}>
+            <ThemedText type="small" style={styles.link}>{saindo ? 'Saindo...' : 'Sair'}</ThemedText>
           </TouchableOpacity>
         </>
       ) : (

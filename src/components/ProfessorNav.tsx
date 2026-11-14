@@ -1,9 +1,10 @@
 //menu de navegação do Portal do Professor, com os links Posts, Professores, Alunos e Sair.
 import { Link, usePathname, useRouter } from 'expo-router';
-import { StyleSheet,TouchableOpacity, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
 
 import { ThemedText } from '@/components/themed-text';
+import { logoutSession } from '@/services/auth';
 
 const ITENS = [
   { href: '/professor', label: 'Posts' },
@@ -16,10 +17,19 @@ const ITENS = [
 export function ProfessorNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const [saindo, setSaindo] = useState(false);
 
   async function sair() {
-    await AsyncStorage.removeItem('@token');
-    router.replace('/');
+    if (saindo) return;
+    setSaindo(true);
+    try {
+      await logoutSession();
+      router.replace('/professor/login');
+    } catch (error: unknown) {
+      Alert.alert('Erro ao sair', error instanceof Error ? error.message : 'Não foi possível encerrar a sessão.');
+    } finally {
+      setSaindo(false);
+    }
   }
 
   return (
@@ -36,9 +46,9 @@ export function ProfessorNav() {
           </Link>
         );
       })}
-      <TouchableOpacity onPress={sair} style={styles.item}>
+      <TouchableOpacity onPress={sair} style={styles.item} disabled={saindo}>
         <ThemedText type="small" style={[styles.itemTexto, styles.sair]}>
-          Sair
+          {saindo ? 'Saindo...' : 'Sair'}
         </ThemedText>
       </TouchableOpacity>
     </View>
