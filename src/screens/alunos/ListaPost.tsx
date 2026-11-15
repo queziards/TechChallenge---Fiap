@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import api, { PaginatedResponse, PaginationMeta, Post } from '@/services/api';
 import { apiErrorMessage } from '@/services/api-error';
 import { getStoredSession, logoutSession } from '@/services/auth';
+import { getPaginatedList } from '@/utils/paginated-list';
 
 const POR_PAGINA = 8;
 const META_INICIAL: PaginationMeta = { currentPage: 1, lastPage: 1, total: 0, perPage: POR_PAGINA };
@@ -24,8 +25,6 @@ type PostApi = {
   user?: { id: number; name: string };
 };
 
-type PostsApiResponse = PostApi[] | PaginatedResponse<PostApi>;
-
 function mapPost(p: PostApi): Post {
   const resumo = p.content.length > 100 ? `${p.content.slice(0, 100)}...` : p.content;
   return {
@@ -35,29 +34,6 @@ function mapPost(p: PostApi): Post {
     conteudo: p.content,
     autor: p.user?.name ?? 'Professor',
     autorId: p.userId ?? p.user?.id,
-  };
-}
-
-function getPostsPage(response: PostsApiResponse, page: number) {
-  if (!Array.isArray(response)) {
-    return {
-      posts: response.data.map(mapPost),
-      meta: response.meta,
-    };
-  }
-
-  const lastPage = Math.max(1, Math.ceil(response.length / POR_PAGINA));
-  const currentPage = Math.min(page, lastPage);
-  const start = (currentPage - 1) * POR_PAGINA;
-
-  return {
-    posts: response.slice(start, start + POR_PAGINA).map(mapPost),
-    meta: {
-      currentPage,
-      lastPage,
-      total: response.length,
-      perPage: POR_PAGINA,
-    },
   };
 }
 
@@ -79,14 +55,14 @@ export function ListaPost() {
     setErro('');
     try {
       const resposta = termo.trim()
-      ? await api.get<PostsApiResponse>('/posts/search', {
+      ? await api.get<PostApi[] | PaginatedResponse<PostApi>>('/posts/search', {
           params: { q: termo.trim(), page, perPage: POR_PAGINA },
         })
-      : await api.get<PostsApiResponse>('/posts', {
+      : await api.get<PostApi[] | PaginatedResponse<PostApi>>('/posts', {
           params: { page, perPage: POR_PAGINA },
         });
-    const resultado = getPostsPage(resposta.data, page);
-    setPosts(resultado.posts);
+    const resultado = getPaginatedList(resposta.data, page, POR_PAGINA);
+    setPosts(resultado.data.map(mapPost));
     setMeta(resultado.meta);
     } catch (e: unknown) {
       setErro(apiErrorMessage(e, 'Não foi possível carregar os posts.'));

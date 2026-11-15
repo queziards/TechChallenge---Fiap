@@ -1,0 +1,8 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:?Configure EXPO_PUBLIC_API_URL no arquivo .env}
+    ports:
+      - "8080:80"

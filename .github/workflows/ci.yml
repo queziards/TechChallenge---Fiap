@@ -1,0 +1,41 @@
+name: Frontend CI
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Tests and web image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test -- --ci
+
+      - name: Export web app
+        run: npm run build:web
+        env:
+          EXPO_PUBLIC_API_URL: https://api.example.invalid/api/v1
+
+      - name: Build Docker image
+        run: docker build --build-arg EXPO_PUBLIC_API_URL=https://api.example.invalid/api/v1 -t projetofiap-web:${{ github.sha }} .
