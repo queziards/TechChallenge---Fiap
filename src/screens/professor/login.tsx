@@ -28,7 +28,7 @@ import { saveSession } from '@/services/auth';
 type LoginResponse = {
   data?: {
     token?: string;
-    user?: { id?: number; role?: string };
+    user?: { id?: number; role?: string; name?: string };
   };
 };
 
@@ -64,7 +64,7 @@ export function Login() {
         return;
       }
 
-      await saveSession(token, user.role, typeof user.id === 'number' ? user.id : null);
+      await saveSession(token, user.role, typeof user.id === 'number' ? user.id : null, user.name);
       router.replace('/professor');
     } catch (erro: unknown) {
       Alert.alert(

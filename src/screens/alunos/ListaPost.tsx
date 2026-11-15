@@ -1,7 +1,7 @@
 //PAGINA DO ALUNO - LISTA DE POST
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,6 +13,7 @@ import api, { PaginatedResponse, PaginationMeta, Post } from '@/services/api';
 import { apiErrorMessage } from '@/services/api-error';
 import { getStoredSession, logoutSession } from '@/services/auth';
 import { getPaginatedList } from '@/utils/paginated-list';
+import type { UserRole } from '@/services/api';
 
 const POR_PAGINA = 8;
 const META_INICIAL: PaginationMeta = { currentPage: 1, lastPage: 1, total: 0, perPage: POR_PAGINA };
@@ -47,8 +48,10 @@ export function ListaPost() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [logado, setLogado] = useState(false);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [nomeUsuario, setNomeUsuario] = useState<string | null>(null);
   const [saindo, setSaindo] = useState(false);
+  const sessaoInicialVerificada = useRef(false);
 
   const buscarPosts = useCallback(async (termo: string, page: number) => {
     setCarregando(true);
@@ -77,10 +80,18 @@ export function ListaPost() {
       getStoredSession()
         .then(async (session) => {
           if (!active) return;
-          const studentSession = session?.role === 'student' ? session : null;
-          setLogado(!!studentSession);
-          const name = studentSession ? await AsyncStorage.getItem('@nome') : null;
-          if (active) setNomeUsuario(name);
+          setLogado(!!session);
+          setRole(session?.role ?? null);
+          const name = session ? await AsyncStorage.getItem('@nome') : null;
+          if (!active) return;
+          setNomeUsuario(name);
+
+          if (!sessaoInicialVerificada.current) {
+            sessaoInicialVerificada.current = true;
+            if (session?.role === 'teacher' || session?.role === 'admin') {
+              router.replace('/professor');
+            }
+          }
         })
         .catch(() => {
           if (active) setErro('Não foi possível verificar sua sessão.');
@@ -91,7 +102,7 @@ export function ListaPost() {
         active = false;
         clearTimeout(timer);
       };
-    }, [busca, pagina, buscarPosts])
+    }, [busca, pagina, buscarPosts, router])
   );
 
   function alterarBusca(termo: string) {
@@ -105,8 +116,9 @@ export function ListaPost() {
     try {
       await logoutSession();
       setLogado(false);
+      setRole(null);
       setNomeUsuario(null);
-      router.replace('/professor/login');
+      router.replace(role === 'student' ? '/alunos/login-aluno' : '/professor/login');
     } catch (error: unknown) {
       setErro(apiErrorMessage(error, 'Não foi possível encerrar a sessão.'));
     } finally {
@@ -134,7 +146,11 @@ export function ListaPost() {
         <View style={styles.headerBarra}>
           <View>
             <ThemedText type="title" style={styles.headerTitulo}>
-              Portal do Aluno
+              {role === 'admin'
+                ? 'Portal do Administrador'
+                : role === 'teacher'
+                  ? 'Portal do Professor'
+                  : 'Portal do Aluno'}
             </ThemedText>
             <ThemedText style={styles.headerSubtitulo}>
               {logado && nomeUsuario ? `Olá, ${nomeUsuario}` : 'Blog da turma'}
@@ -142,11 +158,23 @@ export function ListaPost() {
           </View>
 
           {logado ? (
-            <TouchableOpacity style={styles.headerBotaoProfessor} onPress={sair} disabled={saindo}>
-              <ThemedText type="smallBold" style={styles.headerBotaoProfessorTexto}>
-                {saindo ? 'Saindo...' : 'Sair'}
-              </ThemedText>
-            </TouchableOpacity>
+            <View style={styles.headerAcoes}>
+              {role === 'admin' || role === 'teacher' ? (
+                <TouchableOpacity
+                  style={styles.headerBotaoProfessor}
+                  onPress={() => router.replace('/professor')}
+                >
+                  <ThemedText type="smallBold" style={styles.headerBotaoProfessorTexto}>
+                    Administração
+                  </ThemedText>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={styles.headerBotaoProfessor} onPress={sair} disabled={saindo}>
+                <ThemedText type="smallBold" style={styles.headerBotaoProfessorTexto}>
+                  {saindo ? 'Saindo...' : 'Sair'}
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           ) : (
             <Link href="/professor/login" style={styles.headerBotaoProfessor}>
               <ThemedText type="smallBold" style={styles.headerBotaoProfessorTexto}>
@@ -220,6 +248,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerAcoes: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitulo: { color: '#fff', fontSize: 26 },
 
   headerSubtitulo: {
